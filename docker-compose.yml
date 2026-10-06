@@ -1,0 +1,61 @@
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-9drive}
+      MYSQL_USER: ${MYSQL_USER:-9drive}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-this-database-password}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://${MYSQL_USER:-9drive}:${MYSQL_PASSWORD:-change-this-database-password}@mysql:3306/${MYSQL_DATABASE:-9drive}
+      APP_PORT: 4000
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change-this-jwt-secret-at-least-32-chars}
+      TOKEN_ENCRYPTION_KEY: ${TOKEN_ENCRYPTION_KEY:-change-this-encryption-key-32bytes!}
+      ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-3600}
+      REFRESH_TOKEN_TTL_DAYS: ${REFRESH_TOKEN_TTL_DAYS:-30}
+      MAX_UPLOAD_BYTES: 5368709120
+      PROVIDER_HEALTH_ENABLED: ${PROVIDER_HEALTH_ENABLED:-true}
+      PROVIDER_HEALTH_INTERVAL_SECONDS: ${PROVIDER_HEALTH_INTERVAL_SECONDS:-300}
+      PROVIDER_HEALTH_TIMEOUT_MS: ${PROVIDER_HEALTH_TIMEOUT_MS:-8000}
+      PROVIDER_HEALTH_FAILURE_THRESHOLD: ${PROVIDER_HEALTH_FAILURE_THRESHOLD:-3}
+      PROVIDER_HEALTH_SLOW_MS: ${PROVIDER_HEALTH_SLOW_MS:-2000}
+      DROPBOX_CLIENT_ID: ${DROPBOX_CLIENT_ID:-}
+      DROPBOX_CLIENT_SECRET: ${DROPBOX_CLIENT_SECRET:-}
+      DROPBOX_REDIRECT_URI: ${DROPBOX_REDIRECT_URI:-http://localhost:4000/connected-accounts/dropbox/callback}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost:4000/connected-accounts/google/callback}
+    ports:
+      - "4000:4000"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+        VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  mysql_data:

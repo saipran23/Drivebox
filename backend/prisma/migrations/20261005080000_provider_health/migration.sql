@@ -1,0 +1,20 @@
+CREATE TABLE `provider_health` (
+ `id` CHAR(36) NOT NULL,
+ `connected_account_id` CHAR(36) NOT NULL,
+ `status` VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN',
+ `latency_ms` INTEGER NULL,
+ `last_checked_at` DATETIME(3) NULL,
+ `last_success_at` DATETIME(3) NULL,
+ `consecutive_failures` INTEGER NOT NULL DEFAULT 0,
+ `last_error_code` VARCHAR(64) NULL,
+ `last_error_message` VARCHAR(255) NULL,
+ `next_check_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ `check_lease_token` CHAR(36) NULL,
+ `check_lease_until` DATETIME(3) NULL,
+ `created_at` DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+ `updated_at` DATETIME(3) NOT NULL,
+ PRIMARY KEY (`id`),
+ UNIQUE INDEX `provider_health_connected_account_id_key` (`connected_account_id`),
+ INDEX `provider_health_next_check_at_check_lease_until_idx` (`next_check_at`, `check_lease_until`),
+ CONSTRAINT `provider_health_connected_account_id_fkey` FOREIGN KEY (`connected_account_id`) REFERENCES `connected_accounts` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;

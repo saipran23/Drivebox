@@ -1,0 +1,136 @@
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { AuthShell } from '@/components/auth/AuthShell'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { GoogleLogo } from '@/components/auth/GoogleLogo'
+import { Input } from '@/components/ui/input'
+import { apiFetch } from '@/lib/api'
+import { setAuthSession, type AuthUser } from '@/lib/auth'
+
+type AuthResponse = { accessToken: string; refreshToken: string; user: AuthUser }
+const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY?.trim()
+
+declare global {
+  interface Window {
+    grecaptcha?: {
+      render: (element: HTMLElement, options: { sitekey: string; callback: (token: string) => void; 'expired-callback': () => void }) => number
+      reset: (widgetId?: number) => void
+    }
+  }
+}
+
+export function RegisterPage() {
+  const navigate = useNavigate()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [captchaToken, setCaptchaToken] = useState('')
+  const [captchaEnabled, setCaptchaEnabled] = useState(false)
+  const [configLoaded, setConfigLoaded] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(false)
+  const recaptchaRef = useRef<HTMLDivElement | null>(null)
+  const recaptchaWidgetId = useRef<number | null>(null)
+
+  useEffect(() => {
+    let active = true
+    apiFetch<{ captchaEnabled: boolean }>('/auth/config', { skipAuth: true })
+      .then(config => {
+        if (!active) return
+        if (config.captchaEnabled && !recaptchaSiteKey) {
+          setError('Registration needs a reCAPTCHA site key. Set VITE_RECAPTCHA_SITE_KEY and restart the frontend.')
+          return
+        }
+        setCaptchaEnabled(config.captchaEnabled)
+        setConfigLoaded(true)
+      })
+      .catch(() => { if (active) setError('Cannot reach the backend. Start it and reload this page.') })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (!captchaEnabled || !recaptchaSiteKey) return
+    const scriptId = 'google-recaptcha-script'
+    const renderCaptcha = () => {
+      if (!recaptchaRef.current || !window.grecaptcha || recaptchaWidgetId.current !== null) return
+      recaptchaWidgetId.current = window.grecaptcha.render(recaptchaRef.current, {
+        sitekey: recaptchaSiteKey,
+        callback: setCaptchaToken,
+        'expired-callback': () => setCaptchaToken(''),
+      })
+    }
+
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script')
+      script.id = scriptId
+      script.src = 'https://www.google.com/recaptcha/api.js?render=explicit'
+      script.async = true
+      script.defer = true
+      script.onload = renderCaptcha
+      document.body.appendChild(script)
+    } else {
+      renderCaptcha()
+    }
+  }, [captchaEnabled])
+
+  async function continueWithGoogle() {
+    setGoogleLoading(true)
+    setError('')
+    try {
+      const data = await apiFetch<{ url: string }>('/auth/google/url', { skipAuth: true })
+      window.location.href = data.url
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google register failed')
+      setGoogleLoading(false)
+    }
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!configLoaded) return
+    setLoading(true)
+    setError('')
+    if (captchaEnabled && !captchaToken) {
+      setError('Please complete the captcha.')
+      setLoading(false)
+      return
+    }
+    try {
+      const data = await apiFetch<AuthResponse>('/auth/register', { method: 'POST', skipAuth: true, body: JSON.stringify({ name, email, password, captchaToken }) })
+      setAuthSession(data.accessToken, data.refreshToken, data.user)
+      navigate('/all-files')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Register failed')
+      if (recaptchaWidgetId.current !== null) window.grecaptcha?.reset(recaptchaWidgetId.current)
+      setCaptchaToken('')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <AuthShell>
+      <Card className="auth-form-card w-full max-w-md p-0">
+        <div className="flex items-center gap-3">
+          
+          <div><p className="eyebrow">Start your workspace</p><h1 className="mt-3 text-3xl font-semibold tracking-tight">All your clouds. One home.</h1><p className="mt-3 text-sm text-slate-500">Create your DriveBox account.</p></div>
+        </div>
+        <form onSubmit={submit} className="mt-6 grid gap-4">
+          <label className="grid gap-2 text-sm font-semibold">Name<Input value={name} onChange={(e) => setName(e.target.value)} required /></label>
+          <label className="grid gap-2 text-sm font-semibold">Email<Input autoComplete="email" placeholder="you@example.com" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
+          <label className="grid gap-2 text-sm font-semibold">Password<Input autoComplete="new-password" type="password" minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
+          {captchaEnabled ? <div className="min-h-[78px] overflow-hidden rounded-xl bg-slate-50 p-2"><div ref={recaptchaRef} /></div> : null}
+          {error ? <p className="rounded-xl bg-red-50 p-3 text-sm text-red-600">{error}</p> : null}
+          <Button disabled={loading || !configLoaded}>{loading ? 'Creating...' : 'Create Account'}</Button>
+        </form>
+        <div className="mt-4 grid gap-3">
+          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-wide text-slate-400"><span className="h-px flex-1 bg-slate-200" />or<span className="h-px flex-1 bg-slate-200" /></div>
+          <Button variant="outline" disabled={googleLoading} onClick={continueWithGoogle}><GoogleLogo />{googleLoading ? 'Redirecting...' : 'Continue with Google and connect Drive'}</Button>
+        </div>
+        <p className="mt-5 text-center text-sm text-slate-500">Already registered? <Link className="font-bold text-blue-600" to="/login">Login</Link></p>
+      </Card>
+    </AuthShell>
+  )
+}

@@ -1,0 +1,28 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# Secrets
+.env
+backend/.env
+backend/.env.local
+backend/.env.*.local
+
+# Databases
+*.db
+*.db-journal
+
+# Local env is non-secret by default, keep example in repo instead.
+frontend/.env.local
+frontend/.env.*.local
+                    
+
+DRIVEBOX-UPDATE.md
+DROPBOX-SETUP.md
+LOCAL-SETUP.md
+STAGE-3.md
+STAGE-4.md
+STAGE-5.md
+STAGE-8.md
+STAGES-1-2.md                
