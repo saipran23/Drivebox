@@ -1,6 +1,5 @@
 # Run the configured DriveBox project
 
-This private ZIP includes the frontend and backend `.env` values you supplied, together with Stages 1–5, Stage 8 and Dropbox integration. Stages 6 and 7 remain skipped. Keep the ZIP private because backend/.env contains credentials. Do not replace these files with the example environments.
 
 Use Node.js 22.12 or newer and MySQL 8. Start MySQL on localhost:3306 with the credentials in backend/.env. The configured database is `9drive`. These instructions are for running directly on your computer; the existing Docker instructions require container-specific database hostnames.
 
