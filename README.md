@@ -662,7 +662,7 @@ file
 
 - Backend never stores uploaded files on disk.
 - Uploads are streamed through the backend to Google Drive folder `9drive`.
-- Google tokens are encrypted in MySQL.
+- Google tokens are encrypted in MySQL..
 - Refresh tokens for app sessions are hashed in MySQL.
 - Google auth handoff tokens, public share tokens, and preview tokens are hashed before lookup/use.
 - `backend/.env` is ignored by git.
