@@ -9,3 +9,19 @@ export function errorMiddleware(error: unknown, _req: Request, res: Response, ne
   if ((error as { code?: string })?.code === 'P2025') return res.status(404).json({ code: 'NOT_FOUND', message: 'The requested resource was not found.' })
   return res.status(500).json({ code: 'INTERNAL_SERVER_ERROR', message: 'The request could not be completed.' })
 }
+const detail = error as {
+  name?: string
+  code?: string
+  stack?: string
+}
+
+console.error('Unhandled backend error', {
+  method: _req.method,
+  path: _req.path,
+  name: detail?.name,
+  code: detail?.code,
+  frames: detail?.stack
+    ?.split('\n')
+    .filter(line => /^\s+at /.test(line))
+    .slice(0, 6),
+})
